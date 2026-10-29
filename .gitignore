@@ -1,0 +1,16 @@
+node_modules/
+dist/
+.env
+*.env.local
+.turbo/
+coverage/
+*.tsbuildinfo
+uploads/
+test-results/
+playwright-report/
+tools/
+cloudflared.exe
+*.log
+*.err
+lt-*.log
+tunnel-*.log

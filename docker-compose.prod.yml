@@ -1,0 +1,144 @@
+# ══════════════════════════════════════════════════
+# MyLibrary — Full-Stack Production Docker Compose
+# ══════════════════════════════════════════════════
+# Usage:
+#   docker compose -f docker-compose.prod.yml up --build
+#
+# Ports:
+#   Web App  → http://localhost:5173
+#   Admin    → http://localhost:5174
+#   API      → http://localhost:3000  (also proxied through web/admin)
+
+services:
+  # ─── PostgreSQL ───
+  postgres:
+    image: postgres:16-alpine
+    container_name: mylibrary-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: mylibrary
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ─── Redis ───
+  redis:
+    image: redis:7-alpine
+    container_name: mylibrary-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ─── API Server ───
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: mylibrary-api
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      API_PORT: "3000"
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/mylibrary
+      REDIS_URL: redis://redis:6379
+      JWT_ACCESS_SECRET: demo-access-secret-min-32-chars-long-secure
+      JWT_REFRESH_SECRET: demo-refresh-secret-min-32-chars-long-secure
+      JWT_ACCESS_EXPIRY: "15m"
+      JWT_REFRESH_EXPIRY: "7d"
+      OTP_EXPIRY_SECONDS: "300"
+      OTP_RATE_LIMIT_WINDOW_SECONDS: "60"
+      OTP_MAX_ATTEMPTS: "5"
+      OTP_RESEND_COOLDOWN_SECONDS: "30"
+      RAZORPAY_KEY_ID: rzp_test_xxxxxxxxxxxx
+      RAZORPAY_KEY_SECRET: placeholder
+      RAZORPAY_WEBHOOK_SECRET: placeholder
+      EMAIL_PROVIDER: console
+      EMAIL_API_KEY: placeholder
+      EMAIL_FROM: noreply@mylibrary.in
+      SMS_PROVIDER: console
+      SMS_API_KEY: placeholder
+      SMS_SENDER_ID: MYLIB
+      FRONTEND_URL: http://localhost:5173
+      ADMIN_URL: http://localhost:5174
+      CORS_ORIGINS: http://localhost:5173,http://localhost:5174
+      LIBRARY_TIMEZONE: Asia/Kolkata
+      UPLOAD_DIR: ./uploads
+      MAX_FILE_SIZE_MB: "5"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/v1/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─── DB Migration & Seed (runs once) ───
+  db-setup:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: mylibrary-db-setup
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/mylibrary
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: >
+      sh -c "
+        cd /app/apps/api &&
+        npx prisma db push --skip-generate &&
+        npx tsx prisma/seed.ts &&
+        echo '✅ Database setup complete!'
+      "
+    restart: "no"
+
+  # ─── Web App (Member Portal) ───
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: mylibrary-web
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+    depends_on:
+      api:
+        condition: service_healthy
+
+  # ─── Admin Dashboard ───
+  admin:
+    build:
+      context: .
+      dockerfile: apps/admin/Dockerfile
+    container_name: mylibrary-admin
+    restart: unless-stopped
+    ports:
+      - "5174:80"
+    depends_on:
+      api:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  redis_data:

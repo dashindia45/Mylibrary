@@ -1,0 +1,705 @@
+// ──────────────────────────────────────────────
+// Library Seat Booking Platform — Prisma Schema
+// ──────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ═══════════════════════════════════════════════
+// IDENTITY & AUTH
+// ═══════════════════════════════════════════════
+
+model User {
+  id               String       @id @default(uuid()) @db.Uuid
+  name             String       @db.VarChar(100)
+  status           String       @default("ACTIVE") @db.VarChar(20)  // ACTIVE, SUSPENDED, DEACTIVATED
+  emergencyContact String?      @map("emergency_contact") @db.VarChar(15)
+  createdAt        DateTime     @default(now()) @map("created_at")
+  updatedAt        DateTime     @updatedAt @map("updated_at")
+
+  contacts         UserContact[]
+  userRoles        UserRole[]
+  sessions         Session[]
+  bookings         Booking[]
+  memberships      Membership[]
+  complaints       Complaint[]
+  complaintMessages ComplaintMessage[]
+  notifications    Notification[]
+  waitlistEntries  WaitlistEntry[]
+  auditLogs        AuditLog[]   @relation("AuditActor")
+  cashCollections  CashCollection[] @relation("CollectedBy")
+  complaintAssignments ComplaintAssignment[]
+
+  @@map("users")
+}
+
+model UserContact {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  type       String   @db.VarChar(10) // EMAIL, PHONE
+  value      String   @db.VarChar(255)
+  isVerified Boolean  @default(false) @map("is_verified")
+  isPrimary  Boolean  @default(false) @map("is_primary")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([type, value])
+  @@map("user_contacts")
+}
+
+model Role {
+  id          String     @id @default(uuid()) @db.Uuid
+  name        String     @unique @db.VarChar(30) // SUPER_ADMIN, LIBRARY_MANAGER, etc.
+  description String?    @db.VarChar(200)
+  createdAt   DateTime   @default(now()) @map("created_at")
+
+  userRoles UserRole[]
+
+  @@map("roles")
+}
+
+model UserRole {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  roleId    String   @map("role_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@map("user_roles")
+}
+
+model OtpVerification {
+  id          String   @id @default(uuid()) @db.Uuid
+  contact     String   @db.VarChar(255)
+  contactType String   @map("contact_type") @db.VarChar(10) // EMAIL, PHONE
+  code        String   @db.VarChar(10)
+  expiresAt   DateTime @map("expires_at")
+  isUsed      Boolean  @default(false) @map("is_used")
+  attempts    Int      @default(0)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([contact, contactType])
+  @@map("otp_verifications")
+}
+
+model Session {
+  id           String   @id @default(uuid()) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  refreshToken String   @unique @map("refresh_token") @db.VarChar(500)
+  deviceInfo   String?  @map("device_info") @db.VarChar(500)
+  ipAddress    String?  @map("ip_address") @db.VarChar(45)
+  expiresAt    DateTime @map("expires_at")
+  isRevoked    Boolean  @default(false) @map("is_revoked")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+// ═══════════════════════════════════════════════
+// LIBRARY LAYOUT
+// ═══════════════════════════════════════════════
+
+model Floor {
+  id          String    @id @default(uuid()) @db.Uuid
+  name        String    @db.VarChar(50)
+  floorNumber Int       @unique @map("floor_number")
+  description String?   @db.VarChar(200)
+  status      String    @default("ACTIVE") @db.VarChar(20)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  sections Section[]
+
+  @@map("floors")
+}
+
+model Section {
+  id          String   @id @default(uuid()) @db.Uuid
+  floorId     String   @map("floor_id") @db.Uuid
+  name        String   @db.VarChar(50)
+  sectionType String   @map("section_type") @db.VarChar(20) // GENERAL, QUIET_ZONE, PREMIUM, AC, NON_AC
+  description String?  @db.VarChar(200)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  floor Floor  @relation(fields: [floorId], references: [id], onDelete: Cascade)
+  seats Seat[]
+
+  @@map("sections")
+}
+
+model Seat {
+  id         String   @id @default(uuid()) @db.Uuid
+  sectionId  String   @map("section_id") @db.Uuid
+  seatNumber String   @map("seat_number") @db.VarChar(20)
+  seatType   String   @map("seat_type") @db.VarChar(20) // STANDARD, PREMIUM, CABIN, WINDOW
+  amenities  Json     @default("[]") // Array of amenity strings
+  positionX  Int      @default(0) @map("position_x")
+  positionY  Int      @default(0) @map("position_y")
+  label      String?  @db.VarChar(50)
+  status     String   @default("ACTIVE") @db.VarChar(20) // ACTIVE, MAINTENANCE, BLOCKED, INACTIVE
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  section    Section   @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  bookings   Booking[]
+  seatBlocks SeatBlock[]
+  waitlistEntries WaitlistEntry[]
+
+  @@unique([sectionId, seatNumber])
+  @@map("seats")
+}
+
+model SeatBlock {
+  id        String    @id @default(uuid()) @db.Uuid
+  seatId    String    @map("seat_id") @db.Uuid
+  reason    String    @db.VarChar(200)
+  startDate DateTime  @map("start_date") @db.Date
+  endDate   DateTime? @map("end_date") @db.Date
+  createdBy String    @map("created_by") @db.Uuid
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  seat Seat @relation(fields: [seatId], references: [id], onDelete: Cascade)
+
+  @@map("seat_blocks")
+}
+
+model SeatTypeConfig {
+  id                String   @id @default(uuid()) @db.Uuid
+  code              String   @unique @db.VarChar(50) // e.g. STANDARD, PREMIUM, CABIN, WINDOW
+  name              String   @db.VarChar(100)        // e.g. Standard Desk, Premium Workstation
+  description       String?  @db.VarChar(255)
+  color             String   @default("blue") @db.VarChar(30)
+  defaultPricePaise Int      @default(50000) @map("default_price_paise")
+  isActive          Boolean  @default(true) @map("is_active")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@map("seat_type_configs")
+}
+
+// ═══════════════════════════════════════════════
+// SHIFTS & AVAILABILITY
+// ═══════════════════════════════════════════════
+
+model ShiftType {
+  id        String   @id @default(uuid()) @db.Uuid
+  slot      String   @unique @db.VarChar(20)  // FULL_DAY, MORNING, EVENING
+  name      String   @db.VarChar(50)
+  startTime String   @map("start_time") @db.VarChar(5) // HH:MM
+  endTime   String   @map("end_time") @db.VarChar(5)   // HH:MM
+  isActive  Boolean  @default(true) @map("is_active")
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  pricingRules PricingRule[]
+
+  @@map("shift_types")
+}
+
+model OperatingHour {
+  id        String   @id @default(uuid()) @db.Uuid
+  dayOfWeek Int      @map("day_of_week") // 0=Sunday, 6=Saturday
+  openTime  String   @map("open_time") @db.VarChar(5)
+  closeTime String   @map("close_time") @db.VarChar(5)
+  isClosed  Boolean  @default(false) @map("is_closed")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([dayOfWeek])
+  @@map("operating_hours")
+}
+
+model Holiday {
+  id          String   @id @default(uuid()) @db.Uuid
+  date        DateTime @unique @db.Date
+  name        String   @db.VarChar(100)
+  description String?  @db.VarChar(200)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("holidays")
+}
+
+model PricingRule {
+  id          String   @id @default(uuid()) @db.Uuid
+  shiftTypeId String   @map("shift_type_id") @db.Uuid
+  seatType    String   @map("seat_type") @db.VarChar(20)
+  pricePaise  Int      @map("price_paise")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  shiftType ShiftType @relation(fields: [shiftTypeId], references: [id])
+
+  @@unique([shiftTypeId, seatType])
+  @@map("pricing_rules")
+}
+
+// ═══════════════════════════════════════════════
+// BOOKINGS
+// ═══════════════════════════════════════════════
+
+model Booking {
+  id              String    @id @default(uuid()) @db.Uuid
+  userId          String    @map("user_id") @db.Uuid
+  seatId          String    @map("seat_id") @db.Uuid
+  date            DateTime  @db.Date
+  shiftSlot       String    @map("shift_slot") @db.VarChar(20) // FULL_DAY, MORNING, EVENING
+  shiftStartTime  String    @map("shift_start_time") @db.VarChar(5) // Snapshot of start time
+  shiftEndTime    String    @map("shift_end_time") @db.VarChar(5)   // Snapshot of end time
+  status          String    @default("HELD") @db.VarChar(20)
+  paymentOption   String    @map("payment_option") @db.VarChar(10) // FULL, TOKEN
+  agreedPricePaise Int      @map("agreed_price_paise")
+  tokenAmountPaise Int      @default(0) @map("token_amount_paise")
+  totalPaidPaise  Int       @default(0) @map("total_paid_paise")
+  holdExpiresAt   DateTime? @map("hold_expires_at")
+  cancelledAt     DateTime? @map("cancelled_at")
+  cancelReason    String?   @map("cancel_reason") @db.VarChar(500)
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  user     User           @relation(fields: [userId], references: [id])
+  seat     Seat           @relation(fields: [seatId], references: [id])
+  events   BookingEvent[]
+  checkIns CheckIn[]
+  paymentOrders PaymentOrder[]
+
+  // Prevent overlapping active bookings on the same seat/date/shift.
+  // Business logic enforces FULL_DAY conflicts with MORNING/EVENING;
+  // DB-level unique on (seatId, date, shiftSlot) for same-shift.
+  @@unique([seatId, date, shiftSlot])
+  @@index([userId])
+  @@index([date])
+  @@index([status])
+  @@map("bookings")
+}
+
+model BookingEvent {
+  id         String   @id @default(uuid()) @db.Uuid
+  bookingId  String   @map("booking_id") @db.Uuid
+  fromStatus String?  @map("from_status") @db.VarChar(20)
+  toStatus   String   @map("to_status") @db.VarChar(20)
+  note       String?  @db.VarChar(500)
+  actorId    String?  @map("actor_id") @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  @@index([bookingId])
+  @@map("booking_events")
+}
+
+model CheckIn {
+  id        String   @id @default(uuid()) @db.Uuid
+  bookingId String   @map("booking_id") @db.Uuid
+  method    String   @db.VarChar(20) // QR, MANUAL
+  staffId   String?  @map("staff_id") @db.Uuid
+  checkedAt DateTime @default(now()) @map("checked_at")
+
+  booking Booking @relation(fields: [bookingId], references: [id])
+
+  @@map("check_ins")
+}
+
+model WaitlistEntry {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  seatId     String    @map("seat_id") @db.Uuid
+  date       DateTime  @db.Date
+  shiftSlot  String    @map("shift_slot") @db.VarChar(20)
+  status     String    @default("WAITING") @db.VarChar(20) // WAITING, NOTIFIED, CLAIMED, EXPIRED, CANCELLED
+  notifiedAt DateTime? @map("notified_at")
+  claimBy    DateTime? @map("claim_by")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+  seat Seat @relation(fields: [seatId], references: [id])
+
+  @@index([seatId, date, shiftSlot])
+  @@map("waitlist_entries")
+}
+
+// ═══════════════════════════════════════════════
+// PAYMENTS
+// ═══════════════════════════════════════════════
+
+model PaymentOrder {
+  id               String   @id @default(uuid()) @db.Uuid
+  bookingId        String?  @map("booking_id") @db.Uuid
+  invoiceId        String?  @map("invoice_id") @db.Uuid
+  razorpayOrderId  String   @unique @map("razorpay_order_id") @db.VarChar(100)
+  amountPaise      Int      @map("amount_paise")
+  currency         String   @default("INR") @db.VarChar(3)
+  paymentType      String   @map("payment_type") @db.VarChar(20) // BOOKING_FULL, BOOKING_TOKEN, BOOKING_BALANCE, MEMBERSHIP_FEE
+  status           String   @default("CREATED") @db.VarChar(20)
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  booking   Booking?   @relation(fields: [bookingId], references: [id])
+  invoice   FeeInvoice? @relation(fields: [invoiceId], references: [id])
+  payments  Payment[]
+
+  @@index([bookingId])
+  @@index([invoiceId])
+  @@map("payment_orders")
+}
+
+model Payment {
+  id                String   @id @default(uuid()) @db.Uuid
+  paymentOrderId    String   @map("payment_order_id") @db.Uuid
+  providerPaymentId String?  @unique @map("provider_payment_id") @db.VarChar(100)
+  amountPaise       Int      @map("amount_paise")
+  method            String   @db.VarChar(20) // RAZORPAY, CASH, UPI
+  status            String   @default("PENDING") @db.VarChar(20)
+  receiptNumber     String?  @unique @map("receipt_number") @db.VarChar(50)
+  providerData      Json?    @map("provider_data")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  paymentOrder PaymentOrder @relation(fields: [paymentOrderId], references: [id])
+  refunds      Refund[]
+
+  @@map("payments")
+}
+
+model Refund {
+  id               String   @id @default(uuid()) @db.Uuid
+  paymentId        String   @map("payment_id") @db.Uuid
+  amountPaise      Int      @map("amount_paise")
+  reason           String   @db.VarChar(500)
+  status           String   @default("PENDING") @db.VarChar(20) // PENDING, PROCESSED, FAILED
+  providerRefundId String?  @map("provider_refund_id") @db.VarChar(100)
+  processedAt      DateTime? @map("processed_at")
+  createdBy        String   @map("created_by") @db.Uuid
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  payment Payment @relation(fields: [paymentId], references: [id])
+
+  @@map("refunds")
+}
+
+model CashCollection {
+  id            String   @id @default(uuid()) @db.Uuid
+  bookingId     String?  @map("booking_id") @db.Uuid
+  invoiceId     String?  @map("invoice_id") @db.Uuid
+  amountPaise   Int      @map("amount_paise")
+  method        String   @db.VarChar(20) // CASH, UPI
+  reference     String?  @db.VarChar(100) // UPI ref, receipt number
+  notes         String?  @db.VarChar(500)
+  collectedById String   @map("collected_by_id") @db.Uuid
+  receiptNumber String   @unique @map("receipt_number") @db.VarChar(50)
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  collectedBy User @relation("CollectedBy", fields: [collectedById], references: [id])
+
+  @@map("cash_collections")
+}
+
+model PaymentWebhookEvent {
+  id              String   @id @default(uuid()) @db.Uuid
+  eventId         String   @unique @map("event_id") @db.VarChar(100) // Razorpay event ID for idempotency
+  eventType       String   @map("event_type") @db.VarChar(50)
+  payload         Json
+  processed       Boolean  @default(false)
+  processedAt     DateTime? @map("processed_at")
+  error           String?  @db.VarChar(500)
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@map("payment_webhook_events")
+}
+
+// ═══════════════════════════════════════════════
+// MEMBERSHIP & FEES
+// ═══════════════════════════════════════════════
+
+model MembershipPlan {
+  id             String   @id @default(uuid()) @db.Uuid
+  name           String   @db.VarChar(100)
+  monthlyFeePaise Int     @map("monthly_fee_paise")
+  description    String?  @db.VarChar(500)
+  features       Json     @default("[]")
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  memberships Membership[]
+
+  @@map("membership_plans")
+}
+
+model Membership {
+  id              String   @id @default(uuid()) @db.Uuid
+  userId          String   @map("user_id") @db.Uuid
+  planId          String   @map("plan_id") @db.Uuid
+  status          String   @default("ACTIVE") @db.VarChar(20) // ACTIVE, PAUSED, EXPIRED, CANCELLED
+  startDate       DateTime @map("start_date") @db.Date
+  endDate         DateTime? @map("end_date") @db.Date
+  monthlyFeePaise Int      @map("monthly_fee_paise")  // Can override plan price
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  user     User           @relation(fields: [userId], references: [id])
+  plan     MembershipPlan @relation(fields: [planId], references: [id])
+  invoices FeeInvoice[]
+
+  @@index([userId])
+  @@map("memberships")
+}
+
+model FeeInvoice {
+  id              String    @id @default(uuid()) @db.Uuid
+  membershipId    String    @map("membership_id") @db.Uuid
+  billingMonth    String    @map("billing_month") @db.VarChar(7) // YYYY-MM
+  amountPaise     Int       @map("amount_paise")
+  adjustmentPaise Int       @default(0) @map("adjustment_paise") // Positive = discount
+  totalDuePaise   Int       @map("total_due_paise")  // amountPaise - adjustmentPaise
+  totalPaidPaise  Int       @default(0) @map("total_paid_paise")
+  dueDate         DateTime  @map("due_date") @db.Date
+  status          String    @default("ISSUED") @db.VarChar(20) // DRAFT, ISSUED, PARTIALLY_PAID, PAID, OVERDUE, WAIVED, CANCELLED
+  paidAt          DateTime? @map("paid_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  membership    Membership     @relation(fields: [membershipId], references: [id])
+  feePayments   FeePayment[]
+  reminders     FeeReminder[]
+  adjustments   FeeAdjustment[]
+  paymentOrders PaymentOrder[]
+
+  @@unique([membershipId, billingMonth])
+  @@index([dueDate])
+  @@index([status])
+  @@map("fee_invoices")
+}
+
+model FeePayment {
+  id            String   @id @default(uuid()) @db.Uuid
+  invoiceId     String   @map("invoice_id") @db.Uuid
+  amountPaise   Int      @map("amount_paise")
+  method        String   @db.VarChar(20) // RAZORPAY, CASH, UPI
+  reference     String?  @db.VarChar(100)
+  receiptNumber String   @unique @map("receipt_number") @db.VarChar(50)
+  collectedById String?  @map("collected_by_id") @db.Uuid // For cash/UPI collections
+  notes         String?  @db.VarChar(500)
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  invoice FeeInvoice @relation(fields: [invoiceId], references: [id])
+
+  @@index([invoiceId])
+  @@map("fee_payments")
+}
+
+model FeeReminder {
+  id           String    @id @default(uuid()) @db.Uuid
+  invoiceId    String    @map("invoice_id") @db.Uuid
+  reminderType String    @map("reminder_type") @db.VarChar(20) // EARLY, UPCOMING, DUE_TOMORROW, DUE_TODAY, OVERDUE, RECURRING_OVERDUE
+  scheduledAt  DateTime  @map("scheduled_at")
+  sentAt       DateTime? @map("sent_at")
+  status       String    @default("SCHEDULED") @db.VarChar(20) // SCHEDULED, SENT, FAILED, CANCELLED
+  channel      String?   @db.VarChar(20) // IN_APP, EMAIL, SMS, PUSH
+  error        String?   @db.VarChar(500)
+  createdAt    DateTime  @default(now()) @map("created_at")
+
+  invoice FeeInvoice @relation(fields: [invoiceId], references: [id])
+
+  @@unique([invoiceId, reminderType, scheduledAt])
+  @@index([status, scheduledAt])
+  @@map("fee_reminders")
+}
+
+model FeeAdjustment {
+  id              String   @id @default(uuid()) @db.Uuid
+  invoiceId       String   @map("invoice_id") @db.Uuid
+  adjustmentPaise Int      @map("adjustment_paise") // Positive = reduction/discount
+  reason          String   @db.VarChar(500)
+  authorizedById  String   @map("authorized_by_id") @db.Uuid
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  invoice FeeInvoice @relation(fields: [invoiceId], references: [id])
+
+  @@map("fee_adjustments")
+}
+
+// ═══════════════════════════════════════════════
+// COMMUNICATIONS
+// ═══════════════════════════════════════════════
+
+model Announcement {
+  id              String    @id @default(uuid()) @db.Uuid
+  title           String    @db.VarChar(200)
+  body            String    @db.Text
+  targetAudience  String    @default("ALL") @map("target_audience") @db.VarChar(20) // ALL, MEMBERS, STAFF
+  publishedAt     DateTime? @map("published_at")
+  scheduledAt     DateTime? @map("scheduled_at")
+  isPublished     Boolean   @default(false) @map("is_published")
+  createdById     String    @map("created_by_id") @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  reads AnnouncementRead[]
+
+  @@map("announcements")
+}
+
+model AnnouncementRead {
+  id             String   @id @default(uuid()) @db.Uuid
+  announcementId String   @map("announcement_id") @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  readAt         DateTime @default(now()) @map("read_at")
+
+  announcement Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+
+  @@unique([announcementId, userId])
+  @@map("announcement_reads")
+}
+
+model Notification {
+  id            String    @id @default(uuid()) @db.Uuid
+  userId        String    @map("user_id") @db.Uuid
+  type          String    @db.VarChar(30) // NotificationType enum
+  title         String    @db.VarChar(200)
+  body          String    @db.Text
+  channel       String    @db.VarChar(20) // IN_APP, EMAIL, SMS, PUSH
+  status        String    @default("PENDING") @db.VarChar(20) // PENDING, SENT, DELIVERED, FAILED
+  isRead        Boolean   @default(false) @map("is_read")
+  referenceId   String?   @map("reference_id") @db.Uuid
+  referenceType String?   @map("reference_type") @db.VarChar(30) // BOOKING, INVOICE, COMPLAINT, etc.
+  scheduledAt   DateTime? @map("scheduled_at")
+  sentAt        DateTime? @map("sent_at")
+  error         String?   @db.VarChar(500)
+  retryCount    Int       @default(0) @map("retry_count")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, isRead])
+  @@index([status, scheduledAt])
+  @@map("notifications")
+}
+
+model NotificationPreference {
+  id      String  @id @default(uuid()) @db.Uuid
+  userId  String  @map("user_id") @db.Uuid
+  channel String  @db.VarChar(20) // IN_APP, EMAIL, SMS, PUSH
+  enabled Boolean @default(true)
+
+  @@unique([userId, channel])
+  @@map("notification_preferences")
+}
+
+// ═══════════════════════════════════════════════
+// COMPLAINTS
+// ═══════════════════════════════════════════════
+
+model Complaint {
+  id          String    @id @default(uuid()) @db.Uuid
+  userId      String    @map("user_id") @db.Uuid
+  category    String    @db.VarChar(20) // ComplaintCategory enum
+  severity    String    @default("MEDIUM") @db.VarChar(20)
+  status      String    @default("OPEN") @db.VarChar(20) // ComplaintStatus enum
+  subject     String    @db.VarChar(200)
+  description String    @db.Text
+  resolvedAt  DateTime? @map("resolved_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  user        User                 @relation(fields: [userId], references: [id])
+  messages    ComplaintMessage[]
+  assignments ComplaintAssignment[]
+  attachments Attachment[]
+
+  @@index([userId])
+  @@index([status])
+  @@map("complaints")
+}
+
+model ComplaintMessage {
+  id         String   @id @default(uuid()) @db.Uuid
+  complaintId String  @map("complaint_id") @db.Uuid
+  senderId   String   @map("sender_id") @db.Uuid
+  message    String   @db.Text
+  isInternal Boolean  @default(false) @map("is_internal") // Internal staff notes
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  complaint Complaint @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  sender    User      @relation(fields: [senderId], references: [id])
+
+  @@map("complaint_messages")
+}
+
+model ComplaintAssignment {
+  id          String    @id @default(uuid()) @db.Uuid
+  complaintId String    @map("complaint_id") @db.Uuid
+  staffId     String    @map("staff_id") @db.Uuid
+  assignedAt  DateTime  @default(now()) @map("assigned_at")
+  unassignedAt DateTime? @map("unassigned_at")
+
+  complaint Complaint @relation(fields: [complaintId], references: [id], onDelete: Cascade)
+  staff     User      @relation(fields: [staffId], references: [id])
+
+  @@map("complaint_assignments")
+}
+
+model Attachment {
+  id          String   @id @default(uuid()) @db.Uuid
+  complaintId String?  @map("complaint_id") @db.Uuid
+  fileName    String   @map("file_name") @db.VarChar(255)
+  fileUrl     String   @map("file_url") @db.VarChar(500)
+  fileType    String   @map("file_type") @db.VarChar(50)
+  fileSizeBytes Int    @map("file_size_bytes")
+  uploadedBy  String   @map("uploaded_by") @db.Uuid
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  complaint Complaint? @relation(fields: [complaintId], references: [id])
+
+  @@map("attachments")
+}
+
+// ═══════════════════════════════════════════════
+// ADMINISTRATION
+// ═══════════════════════════════════════════════
+
+model LibrarySetting {
+  id        String   @id @default(uuid()) @db.Uuid
+  key       String   @unique @db.VarChar(100)
+  value     String   @db.Text
+  label     String   @db.VarChar(200)
+  category  String   @db.VarChar(50)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("library_settings")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  actorId    String?  @map("actor_id") @db.Uuid
+  action     String   @db.VarChar(30) // AuditAction enum
+  entityType String   @map("entity_type") @db.VarChar(30)
+  entityId   String?  @map("entity_id") @db.Uuid
+  oldValue   Json?    @map("old_value")
+  newValue   Json?    @map("new_value")
+  ipAddress  String?  @map("ip_address") @db.VarChar(45)
+  userAgent  String?  @map("user_agent") @db.VarChar(500)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  actor User? @relation("AuditActor", fields: [actorId], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([actorId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}

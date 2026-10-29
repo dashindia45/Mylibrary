@@ -1,0 +1,220 @@
+// ─── User & Auth Enums ───
+
+export enum UserStatus {
+  ACTIVE = 'ACTIVE',
+  SUSPENDED = 'SUSPENDED',
+  DEACTIVATED = 'DEACTIVATED',
+}
+
+export enum ContactType {
+  EMAIL = 'EMAIL',
+  PHONE = 'PHONE',
+}
+
+export enum Role {
+  SUPER_ADMIN = 'SUPER_ADMIN',
+  LIBRARY_MANAGER = 'LIBRARY_MANAGER',
+  RECEPTION_STAFF = 'RECEPTION_STAFF',
+  SUPPORT_STAFF = 'SUPPORT_STAFF',
+  MEMBER = 'MEMBER',
+}
+
+// ─── Library Layout ───
+
+export enum FloorStatus {
+  ACTIVE = 'ACTIVE',
+  INACTIVE = 'INACTIVE',
+}
+
+export enum SectionType {
+  GENERAL = 'GENERAL',
+  QUIET_ZONE = 'QUIET_ZONE',
+  PREMIUM = 'PREMIUM',
+  AC = 'AC',
+  NON_AC = 'NON_AC',
+}
+
+export enum SeatStatus {
+  ACTIVE = 'ACTIVE',
+  MAINTENANCE = 'MAINTENANCE',
+  BLOCKED = 'BLOCKED',
+  INACTIVE = 'INACTIVE',
+}
+
+export enum SeatType {
+  STANDARD = 'STANDARD',
+  PREMIUM = 'PREMIUM',
+  CABIN = 'CABIN',
+  WINDOW = 'WINDOW',
+}
+
+export enum Amenity {
+  AC = 'AC',
+  CHARGING_POINT = 'CHARGING_POINT',
+  WINDOW = 'WINDOW',
+  DESK_LAMP = 'DESK_LAMP',
+  LOCKER = 'LOCKER',
+  WIFI = 'WIFI',
+}
+
+// ─── Shifts & Booking ───
+
+export enum ShiftSlot {
+  FULL_DAY = 'FULL_DAY',
+  MORNING = 'MORNING',
+  EVENING = 'EVENING',
+}
+
+export enum BookingStatus {
+  HELD = 'HELD',
+  PENDING_PAYMENT = 'PENDING_PAYMENT',
+  CONFIRMED = 'CONFIRMED',
+  PARTIALLY_PAID = 'PARTIALLY_PAID',
+  PAID = 'PAID',
+  EXPIRED = 'EXPIRED',
+  CANCELLED = 'CANCELLED',
+  CHECKED_IN = 'CHECKED_IN',
+  NO_SHOW = 'NO_SHOW',
+  REFUND_PENDING = 'REFUND_PENDING',
+  REFUNDED = 'REFUNDED',
+}
+
+export enum WaitlistStatus {
+  WAITING = 'WAITING',
+  NOTIFIED = 'NOTIFIED',
+  CLAIMED = 'CLAIMED',
+  EXPIRED = 'EXPIRED',
+  CANCELLED = 'CANCELLED',
+}
+
+// ─── Payments ───
+
+export enum PaymentStatus {
+  CREATED = 'CREATED',
+  PENDING = 'PENDING',
+  SUCCESS = 'SUCCESS',
+  FAILED = 'FAILED',
+  REFUND_PENDING = 'REFUND_PENDING',
+  REFUNDED = 'REFUNDED',
+  PARTIALLY_REFUNDED = 'PARTIALLY_REFUNDED',
+}
+
+export enum PaymentMethod {
+  RAZORPAY = 'RAZORPAY',
+  CASH = 'CASH',
+  UPI = 'UPI',
+}
+
+export enum PaymentType {
+  BOOKING_FULL = 'BOOKING_FULL',
+  BOOKING_TOKEN = 'BOOKING_TOKEN',
+  BOOKING_BALANCE = 'BOOKING_BALANCE',
+  MEMBERSHIP_FEE = 'MEMBERSHIP_FEE',
+}
+
+// ─── Membership & Fees ───
+
+export enum MembershipStatus {
+  ACTIVE = 'ACTIVE',
+  PAUSED = 'PAUSED',
+  EXPIRED = 'EXPIRED',
+  CANCELLED = 'CANCELLED',
+}
+
+export enum InvoiceStatus {
+  DRAFT = 'DRAFT',
+  ISSUED = 'ISSUED',
+  PARTIALLY_PAID = 'PARTIALLY_PAID',
+  PAID = 'PAID',
+  OVERDUE = 'OVERDUE',
+  WAIVED = 'WAIVED',
+  CANCELLED = 'CANCELLED',
+}
+
+export enum ReminderType {
+  EARLY = 'EARLY',
+  UPCOMING = 'UPCOMING',
+  DUE_TOMORROW = 'DUE_TOMORROW',
+  DUE_TODAY = 'DUE_TODAY',
+  OVERDUE = 'OVERDUE',
+  RECURRING_OVERDUE = 'RECURRING_OVERDUE',
+}
+
+export enum ReminderStatus {
+  SCHEDULED = 'SCHEDULED',
+  SENT = 'SENT',
+  FAILED = 'FAILED',
+  CANCELLED = 'CANCELLED',
+}
+
+// ─── Complaints ───
+
+export enum ComplaintCategory {
+  SEAT_ISSUE = 'SEAT_ISSUE',
+  CLEANLINESS = 'CLEANLINESS',
+  NOISE = 'NOISE',
+  PAYMENT = 'PAYMENT',
+  AMENITY = 'AMENITY',
+  STAFF = 'STAFF',
+  OTHER = 'OTHER',
+}
+
+export enum ComplaintSeverity {
+  LOW = 'LOW',
+  MEDIUM = 'MEDIUM',
+  HIGH = 'HIGH',
+  CRITICAL = 'CRITICAL',
+}
+
+export enum ComplaintStatus {
+  OPEN = 'OPEN',
+  IN_PROGRESS = 'IN_PROGRESS',
+  RESOLVED = 'RESOLVED',
+  CLOSED = 'CLOSED',
+  REOPENED = 'REOPENED',
+}
+
+// ─── Notifications ───
+
+export enum NotificationType {
+  OTP = 'OTP',
+  BOOKING_CONFIRMED = 'BOOKING_CONFIRMED',
+  BOOKING_CANCELLED = 'BOOKING_CANCELLED',
+  BOOKING_REMINDER = 'BOOKING_REMINDER',
+  HOLD_EXPIRING = 'HOLD_EXPIRING',
+  PAYMENT_RECEIPT = 'PAYMENT_RECEIPT',
+  FEE_REMINDER = 'FEE_REMINDER',
+  FEE_OVERDUE = 'FEE_OVERDUE',
+  MEMBERSHIP_RENEWAL = 'MEMBERSHIP_RENEWAL',
+  COMPLAINT_UPDATE = 'COMPLAINT_UPDATE',
+  ANNOUNCEMENT = 'ANNOUNCEMENT',
+  WAITLIST_AVAILABLE = 'WAITLIST_AVAILABLE',
+}
+
+export enum NotificationChannel {
+  IN_APP = 'IN_APP',
+  EMAIL = 'EMAIL',
+  SMS = 'SMS',
+  PUSH = 'PUSH',
+}
+
+export enum NotificationStatus {
+  PENDING = 'PENDING',
+  SENT = 'SENT',
+  DELIVERED = 'DELIVERED',
+  FAILED = 'FAILED',
+}
+
+// ─── Audit ───
+
+export enum AuditAction {
+  CREATE = 'CREATE',
+  UPDATE = 'UPDATE',
+  DELETE = 'DELETE',
+  STATUS_CHANGE = 'STATUS_CHANGE',
+  LOGIN = 'LOGIN',
+  LOGOUT = 'LOGOUT',
+  PAYMENT = 'PAYMENT',
+  REFUND = 'REFUND',
+  ROLE_CHANGE = 'ROLE_CHANGE',
+}

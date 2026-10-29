@@ -1,0 +1,30 @@
+{
+  "name": "mylibrary",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Library Seat Booking & Management Platform",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run dev -w apps/api",
+    "dev:web": "npm run dev -w apps/web",
+    "dev:admin": "npm run dev -w apps/admin",
+    "build:shared": "npm run build -w packages/shared",
+    "build:api": "npm run build -w apps/api",
+    "build:web": "npm run build -w apps/web",
+    "build:admin": "npm run build -w apps/admin",
+    "build": "npm run build:shared && npm run build:api && npm run build:web && npm run build:admin",
+    "db:migrate": "npm run db:migrate -w apps/api",
+    "db:push": "npm run db:push -w apps/api",
+    "db:seed": "npm run db:seed -w apps/api",
+    "db:studio": "npm run db:studio -w apps/api",
+    "test": "npm run test -w apps/api",
+    "test:e2e": "npx playwright test",
+    "lint": "eslint . --ext .ts,.tsx"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

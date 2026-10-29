@@ -1,0 +1,12 @@
+node_modules
+dist
+.git
+.gitignore
+.env.local
+*.tsbuildinfo
+coverage
+test-results
+playwright-report
+uploads
+README.md
+docs
