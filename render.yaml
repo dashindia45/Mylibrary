@@ -5,7 +5,7 @@
 databases:
   - name: mylibrary-db
     databaseName: mylibrary
-    user: postgres
+    user: mylibrary_admin
     plan: free
     region: oregon
 
@@ -50,8 +50,6 @@ services:
   - type: web
     name: mylibrary-web
     runtime: static
-    plan: free
-    region: oregon
     buildCommand: npm install && npm run build:shared && npm run build:web
     staticPublishPath: ./apps/web/dist
     routes:
@@ -69,8 +67,6 @@ services:
   - type: web
     name: mylibrary-admin
     runtime: static
-    plan: free
-    region: oregon
     buildCommand: npm install && npm run build:shared && npm run build:admin
     staticPublishPath: ./apps/admin/dist
     routes:
