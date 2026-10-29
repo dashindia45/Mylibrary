@@ -16,7 +16,7 @@ services:
     runtime: node
     plan: free
     region: oregon
-    buildCommand: npm install && npm run build:shared && npx prisma db push --schema=apps/api/prisma/schema.prisma && npx tsx apps/api/prisma/seed.ts && npm run build:api
+    buildCommand: npm install && npm run build:shared && npx prisma generate --schema=apps/api/prisma/schema.prisma && npx prisma db push --schema=apps/api/prisma/schema.prisma && npx tsx apps/api/prisma/seed.ts && npm run build:api
     startCommand: npm run start -w apps/api
     envVars:
       - key: NODE_ENV

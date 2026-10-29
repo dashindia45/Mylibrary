@@ -1,5 +1,6 @@
 import type { ApiResponse } from '@mylibrary/shared';
-const API_BASE = (import.meta.env.VITE_API_URL || '') + '/api/v1';
+const rawBase = import.meta.env.VITE_API_URL || '';
+const API_BASE = (rawBase ? (rawBase.startsWith('http') ? rawBase : `https://${rawBase}`) : '') + '/api/v1';
 
 class ApiClient {
   private accessToken: string | null = null;
