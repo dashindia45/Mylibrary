@@ -16,7 +16,7 @@ services:
     runtime: node
     plan: free
     region: oregon
-    buildCommand: npm install && npm run build:shared && npx prisma generate --schema=apps/api/prisma/schema.prisma && npx prisma db push --schema=apps/api/prisma/schema.prisma && npx tsx apps/api/prisma/seed.ts && npm run build:api
+    buildCommand: npm install --include=dev && npm run build:shared && npx prisma generate --schema=apps/api/prisma/schema.prisma && npx prisma db push --schema=apps/api/prisma/schema.prisma && npx tsx apps/api/prisma/seed.ts && npm run build:api
     startCommand: npm run start -w apps/api
     envVars:
       - key: NODE_ENV
@@ -50,7 +50,7 @@ services:
   - type: web
     name: mylibrary-web
     runtime: static
-    buildCommand: npm install && npm run build:shared && npm run build:web
+    buildCommand: npm install --include=dev && npm run build:shared && npm run build:web
     staticPublishPath: ./apps/web/dist
     routes:
       - type: rewrite
@@ -67,7 +67,7 @@ services:
   - type: web
     name: mylibrary-admin
     runtime: static
-    buildCommand: npm install && npm run build:shared && npm run build:admin
+    buildCommand: npm install --include=dev && npm run build:shared && npm run build:admin
     staticPublishPath: ./apps/admin/dist
     routes:
       - type: rewrite
